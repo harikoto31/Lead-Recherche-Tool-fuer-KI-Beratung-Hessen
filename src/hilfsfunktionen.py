@@ -9,6 +9,7 @@ Grenzfaelle zur Klassifikation eingesetzt, nicht zur Bewertung.
 import re
 import time
 from pathlib import Path
+import os
 
 import pandas as pd
 import requests

@@ -23,22 +23,27 @@ BENOETIGTE API-KEYS:
 """
 
 from pathlib import Path
+import os
+from dotenv import load_dotenv
 
 import pandas as pd
 from openai import OpenAI
 
-from hilfsfunktionen import ausgabe_pfad, firmenliste_filtern, process_firmenliste
+from hilfsfunktionen import ausgabe_pfad, firmenliste_filtern, process_firmenliste, lade_key
 
-# --- Konfiguration -----------------------------------------------------------
-SEARCH_API_KEY = "API_KEY"   # serper.dev
-OPENAI_API_KEY = "API_KEY"   # platform.openai.com
-MODEL          = "gpt-4o-mini"
-
-INPUT_FOLDER  = "firmenlisten"
-OUTPUT_FOLDER = "results"
+PROJEKT_ROOT = Path(__file__).resolve().parent.parent
+INPUT_FOLDER  = PROJEKT_ROOT / "firmenlisten"
+OUTPUT_FOLDER = PROJEKT_ROOT / "results"
 
 MIN_MITARBEITER = 100
 MIN_UMSATZ_MIO   = 25.0
+
+load_dotenv(PROJEKT_ROOT / ".env")
+
+SEARCH_API_KEY = lade_key("SERPER_API_KEY")
+OPENAI_API_KEY = lade_key("OPENAI_API_KEY")
+
+MODEL = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
 
 client = OpenAI(api_key=OPENAI_API_KEY)
 

@@ -1,12 +1,9 @@
 """
-Hilfsfunktionen fuer die Tender-Manager-Job-Suche.
+Hilfsfunktionen fuer die Tender-Manager-Suche.
 
-Kompletter Ansatz-Wechsel gegenueber der alten Version:
-- keine GPT-Websuche + subjektives Scoring mehr,
-- sondern zwei kombinierte Serper-Suchvarianten (site: + freie Suche) pro
-  Firma, mehrere Kandidaten-URLs, direkte Verifikation auf der Seite.
-  GPT kommt nur noch fuer Grenzfaelle zum Einsatz (Klassifikation, kein
-  Scoring).
+Pro Firma werden zwei Serper-Suchvarianten kombiniert (site: + freie Suche),
+die Kandidaten-URLs direkt geladen und verifiziert. GPT wird nur fuer
+Grenzfaelle zur Klassifikation eingesetzt, nicht zur Bewertung.
 """
 
 import re
@@ -22,9 +19,6 @@ from openai import OpenAI
 # - EXAKT: Begriff trifft die gesuchte Rolle 1:1 -> Konfidenz 100
 # - VERWANDT: Begriff ist thematisch nah dran, aber nicht zwingend deckungs-
 #   gleich (z.B. Oberbegriff oder verwandte Rolle) -> Konfidenz 75
-#
-# PLATZHALTER: hier deine vollstaendige Liste eintragen, die untenstehenden
-# Eintraege sind nur Beispiele aus dem bisherigen Gespraech.
 # ---------------------------------------------------------------------------
 KEYWORDS_EXAKT = [
     "Tender Management",
@@ -65,6 +59,13 @@ STELLENANZEIGE_SIGNALE = [
     "join our team", "apply now", "job description", "we are looking for",
 ]
 
+def lade_key(name: str) -> str:
+    """Liest einen API-Key aus os.environ; bricht mit klarer Meldung ab, falls er fehlt."""
+    try:
+        return os.environ[name]  # wie map.at() in C++: wirft KeyError, wenn der Name fehlt
+    except KeyError:
+        # name in der Meldung -> man sieht sofort, WELCHER Key fehlt
+        raise SystemExit(f"Fehlender API-Key: {name} in .env eintragen")
 
 def ausgabe_pfad(input_csv: Path, output_folder: str) -> Path:
     return Path(output_folder) / f"{input_csv.stem}_tenderManagerTreffer.csv"
@@ -89,7 +90,7 @@ def firmenliste_filtern(
     min_umsatz_mio: float = 25.0,
 ) -> pd.DataFrame:
     """
-    Kriterium vom Chef: >= 100 Mitarbeiter ODER >= 25 Mio Euro Jahresumsatz.
+    Groessenkriterium: >= 100 Mitarbeiter ODER >= 25 Mio Euro Jahresumsatz.
     Falls die Spalten "Mitarbeiter"/"Umsatz_Mio" in der CSV fehlen (z.B. weil
     die Liste schon vorgefiltert aus North Data exportiert wurde -- Achtung,
     North Data verknuepft mehrere Kennzahlen-Filter selbst mit UND, nicht
@@ -252,8 +253,7 @@ def llm_klassifiziere_stelle(
     Nur fuer Grenzfaelle: Keyword gefunden, aber kein klares Anzeigen-Signal
     auf der Seite (z.B. individuelles ATS-Layout ohne Standardphrasen, oder
     requests hat nur ein JS-Grundgeruest geladen). GPT liest den Ausschnitt
-    und nennt entweder den konkreten Stellentitel oder "NEIN". Kein Scoring
-    wie im alten Ansatz, nur Klassifikation -> wenig Tokens/Kosten pro Firma.
+    und nennt entweder den konkreten Stellentitel oder "NEIN". Nur Klassifikation, kein Scoring -> wenig Tokens/Kosten pro Firma.
     """
     prompt = (
         f"Firma: {firma}\n"
